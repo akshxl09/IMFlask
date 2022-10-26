@@ -6,60 +6,60 @@ on:
         - main
 
 env:
-    ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
-    ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-    IMAGE_TAG: ${{ github.sha }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-    build:
-        name: CI
-        runs-on: ubuntu-latest
-        
-        steps:
-        - name: Checkout
-          uses: actions/checkout@v2
-        
-        - name: Configure AWS credentials
-          uses: aws-actions/configure-aws-credentials@v1
+  build:
+    name: CI
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-northeast-2
+    
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      run: |
+        docker build -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} .
+        docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+  
+  deploy:
+    needs: build
+    name: CD
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Configure AWS credentials for ECR
+        uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
-        
-        - name: Login to Amazon ECR
-          id: login-ecr
-          uses: aws-actions/amazon-ecr-login@v1
-
-        - name: Build, tag, and push image to Amazon ECR
-          id: build-image
-          run: |
-            docker build -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} .
-            docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
-
-  
-    deploy:
-        needs: build
-        name: CD
-        runs-on: ubuntu-latest
-        
-        steps:
-          - name: Configure AWS credentials for ECR
-            uses: aws-actions/configure-aws-credentials@v1
-            with:
-              aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
-              aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-              aws-region: ap-northeast-2
-          
-          - name: Login to Amazon ECR
-            id: login-ecr
-            uses: aws-actions/amazon-ecr-login@v1
-          
-          - name: Configure AWS credentials for SSM
-            uses: aws-actions/configure-aws-credentials@v1
-            with:
-              aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
-              aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-              aws-region: ap-northeast-2
-          
-          - name: AWS SSM Deploy Command
-            run: aws ssm send-command --targets Key=tag:Name,Values=tab-flask --document-name tab-flask-ssm-document
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      
+      - name: Configure AWS credentials for SSM
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+      
+      - name: AWS SSM Deploy Command
+        run: aws ssm send-command --targets Key=tag:Name,Values=tab-flask --document-name tab-flask-ssm-document
