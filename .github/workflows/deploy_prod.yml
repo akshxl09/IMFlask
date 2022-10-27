@@ -62,4 +62,4 @@ jobs:
           aws-region: ap-northeast-2
       
       - name: AWS SSM Deploy Command
-        run: aws ssm send-command --targets Key=tag:Name,Values=tab-flask --document-name tab-flask-ssm-document
+        run: aws ssm send-command --targets Key=tag:Name,Values=tab-flask --document-name tab-test
